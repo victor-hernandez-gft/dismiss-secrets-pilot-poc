@@ -3,7 +3,7 @@ import { writeFile } from 'node:fs/promises';
 const apiBaseUrl = 'https://api.github.com';
 const repository = process.env.GITHUB_REPOSITORY;
 const token = process.env.SECRET_SCANNING_READ_TOKEN;
-const reportPath = 'secret-scanning-alerts.json';
+const reportPath = 'secret-scanning-alerts.md';
 
 if (!token) {
   throw new Error('Set the repository secret SECRET_SCANNING_READ_TOKEN before running this workflow.');
@@ -106,5 +106,54 @@ const report = {
   alerts: reportAlerts,
 };
 
-await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
-console.log(`Generated report for ${report.alert_count} open alert(s).`);
+function escapeMarkdown(value) {
+  return String(value ?? 'unknown').replace(/[\\`|*_{}\[\]<>]/g, '\\$&');
+}
+
+function renderReport({ repository: repoName, generated_at, alert_count, alerts: openAlerts }) {
+  const lines = [
+    '# Secret Scanning alert report',
+    '',
+    `- Repository: \`${escapeMarkdown(repoName)}\``,
+    `- Generated at: ${escapeMarkdown(generated_at)}`,
+    `- Open alerts: ${alert_count}`,
+    '',
+  ];
+
+  if (openAlerts.length === 0) {
+    lines.push('No open Secret Scanning alerts were found.');
+    return `${lines.join('\n')}\n`;
+  }
+
+  for (const alert of openAlerts) {
+    lines.push(
+      `## Alert #${alert.number}`,
+      '',
+      `- Type: ${escapeMarkdown(alert.secret_type_display_name ?? alert.secret_type)}`,
+      `- State: ${escapeMarkdown(alert.state)}`,
+      `- Created: ${escapeMarkdown(alert.created_at)}`,
+      `- Updated: ${escapeMarkdown(alert.updated_at)}`,
+      `- GitHub: <${alert.html_url}>`,
+      '- Locations:',
+    );
+
+    if (alert.locations.length === 0) {
+      lines.push('  - No location details available.');
+    } else {
+      for (const location of alert.locations) {
+        const lineRange = location.start_line == null
+          ? ''
+          : `:${location.start_line}${location.end_line == null || location.end_line === location.start_line ? '' : `-${location.end_line}`}`;
+        const path = location.path ? `\`${escapeMarkdown(location.path)}${lineRange}\`` : 'Unknown path';
+        lines.push(`  - ${path} (type: ${escapeMarkdown(location.type)})`);
+      }
+    }
+
+    lines.push('');
+  }
+
+  return `${lines.join('\n')}\n`;
+}
+
+await writeFile(reportPath, renderReport(report), { mode: 0o600 });
+console.log(`Generated Markdown report for ${report.alert_count} open alert(s).`);
