@@ -4,6 +4,7 @@ const apiBaseUrl = 'https://api.github.com';
 const repository = process.env.GITHUB_REPOSITORY;
 const token = process.env.SECRET_SCANNING_READ_TOKEN;
 const reportPath = 'secret-scanning-alerts.md';
+const reportDataPath = 'secret-scanning-alerts.json';
 
 if (!token) {
   throw new Error('Set the repository secret SECRET_SCANNING_READ_TOKEN before running this workflow.');
@@ -156,4 +157,5 @@ function renderReport({ repository: repoName, generated_at, alert_count, alerts:
 }
 
 await writeFile(reportPath, renderReport(report), { mode: 0o600 });
+await writeFile(reportDataPath, `${JSON.stringify(report, null, 2)}\n`, { mode: 0o600 });
 console.log(`Generated Markdown report for ${report.alert_count} open alert(s).`);
