@@ -126,8 +126,13 @@ async function findExistingIssue(alertNumber) {
   issueListUrl.searchParams.set('per_page', '100');
 
   const marker = `<!-- secret-scanning-alert:${alertNumber} -->`;
+  const alertUrl = `https://github.com/${owner}/${repo}/security/secret-scanning/${alertNumber}`;
   const issues = await getAllPages(issueListUrl);
-  return issues.find((issue) => !issue.pull_request && issue.title === `Secret Scanning Alert ${alertNumber}` && issue.body?.includes(marker));
+  return issues.find((issue) => (
+    !issue.pull_request
+    && issue.title === `Secret Scanning Alert ${alertNumber}`
+    && (issue.body?.includes(marker) || issue.body?.includes(alertUrl))
+  ));
 }
 
 async function findAnalysisComment(issueNumber, alertNumber) {
