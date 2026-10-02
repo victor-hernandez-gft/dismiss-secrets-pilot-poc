@@ -12,4 +12,4 @@ El workflow `Secret Scanning Alert Report` se ejecuta con cada push y genera un 
 
 ### Uso del agente
 
-Descarga `secret-scanning-alerts.md` desde el artifact de la ejecución en **Actions** y colócalo en el workspace para que `dismiss-secrets-agent` lo analice cuando lo invoques. El agente solo recomienda una clasificación; no cambia el estado de las alertas.
+Descarga `secret-scanning-alerts.md` desde el artifact de la ejecución en **Actions** y colócalo en el workspace para que `dismiss-secrets-agent` lo analice cuando lo invoques. El agente debe clasificar cada alerta por separado, explicar la evidencia y recomendar una acción para cada una; no debe limitarse a contar alertas. El reporte contiene metadatos y ubicaciones, no prueba por sí solo que una credencial haya sido revocada, sea ficticia o se use exclusivamente en pruebas. En esos casos, la clasificación adecuada es `NO_DISMISS` y el agente debe indicar qué se necesita investigar. El agente solo recomienda; no cambia el estado de las alertas.
