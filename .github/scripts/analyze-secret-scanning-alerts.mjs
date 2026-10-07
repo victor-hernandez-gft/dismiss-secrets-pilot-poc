@@ -168,6 +168,33 @@ const analysis = openAlerts.map((alert) => {
   return {
     alert,
     classification: 'NO_DISMISS',
+    decision_path: [
+      {
+        step: '¿Hay evidencia explícita de revocación, rotación, deshabilitación, expiración o invalidación?',
+        outcome: 'NO EVALUABLE',
+        evidence: 'Los metadatos de la alerta no informan el estado de la credencial; que la alerta esté abierta no demuestra si sigue activa o fue revocada.',
+      },
+      {
+        step: '¿Hay evidencia clara de falso positivo o de que el sistema ya no existe?',
+        outcome: 'NO EVALUABLE',
+        evidence: 'El reporte no incluye el valor detectado ni evidencia que permita verificar si es ficticio, un placeholder o de un sistema inexistente.',
+      },
+      {
+        step: '¿Hay evidencia de que el valor es ficticio, no da acceso real y se usa exclusivamente en pruebas?',
+        outcome: 'NO EVALUABLE',
+        evidence: 'El tipo y la ubicación de la alerta no demuestran que el valor sea ficticio ni que su uso sea exclusivo de pruebas.',
+      },
+      {
+        step: '¿Existe evidencia explícita de una excepción aprobada que justifique WONT_FIX?',
+        outcome: 'NO EVALUABLE',
+        evidence: 'Los metadatos de la alerta no contienen información sobre excepciones aprobadas.',
+      },
+      {
+        step: 'Resultado del recorrido',
+        outcome: 'NO_DISMISS',
+        evidence: 'No se puede confirmar con la evidencia proporcionada ningún motivo de dismiss; se requiere verificación con el propietario autorizado.',
+      },
+    ],
     evidence: result.evidence,
     rationale: result.rationale,
     recommended_action: result.recommended_action,

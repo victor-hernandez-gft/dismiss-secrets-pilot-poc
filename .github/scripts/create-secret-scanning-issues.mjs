@@ -74,6 +74,47 @@ function escapeMarkdown(value) {
     .replace(/[\\`|*_{}\[\]<>]/g, '\\$&');
 }
 
+function renderDecisionDiagram(decisionPath) {
+  const outcomes = decisionPath.slice(0, 4).map((step) => (
+    ['DEMOSTRADO', 'NO DEMOSTRADO', 'NO EVALUABLE'].includes(step.outcome)
+      ? step.outcome
+      : 'NO EVALUABLE'
+  ));
+  const labels = [
+    '¿Hay evidencia explícita de que la credencial fue invalidada?',
+    '¿Hay evidencia clara de falso positivo?',
+    '¿Se demuestra que es ficticia y solo se usa en pruebas?',
+    '¿Hay una excepción aprobada y documentada?',
+  ];
+
+  return [
+    '```mermaid',
+    'flowchart TD',
+    `  A{"${labels[0]}<br/>${outcomes[0]}"}`,
+    `  B{"${labels[1]}<br/>${outcomes[1]}"}`,
+    `  C{"${labels[2]}<br/>${outcomes[2]}"}`,
+    `  D{"${labels[3]}<br/>${outcomes[3]}"}`,
+    '  R["REVOKED"]',
+    '  F["FALSE_POSITIVE"]',
+    '  T["USED_IN_TESTS"]',
+    '  W["WONT_FIX"]',
+    '  N(["NO_DISMISS"])',
+    `  A -- "No: ${outcomes[0]}" --> B`,
+    '  A -- "Sí" --> R',
+    `  B -- "No: ${outcomes[1]}" --> C`,
+    '  B -- "Sí" --> F',
+    `  C -- "No: ${outcomes[2]}" --> D`,
+    '  C -- "Sí" --> T',
+    `  D -- "No: ${outcomes[3]}" --> N`,
+    '  D -- "Sí" --> W',
+    '  classDef selected fill:#fff2cc,stroke:#b8860b,stroke-width:3px',
+    '  classDef alternative fill:#f5f5f5,stroke:#999,color:#555',
+    '  class A,B,C,D,N selected',
+    '  class R,F,T,W alternative',
+    '```',
+  ].join('\n');
+}
+
 function issueBody(alert, generatedAt) {
   const lines = [
     `<!-- secret-scanning-alert:${alert.number} -->`,
@@ -114,9 +155,18 @@ function analysisComment(analysis, generatedAt) {
     `- **Motivo:** ${escapeMarkdown(analysis.rationale)}`,
     `- **Acción recomendada:** ${escapeMarkdown(analysis.recommended_action)}`,
     '',
-    `_Análisis generado por OpenAI el ${escapeMarkdown(generatedAt)}. No se incluyó el valor del secreto._`,
+    '### Ruta de decisión',
+    '',
   ];
 
+  for (const [index, step] of analysis.decision_path.entries()) {
+    lines.push(
+      `${index + 1}. **${escapeMarkdown(step.outcome)} — ${escapeMarkdown(step.step)}**`,
+      `   - Evidencia: ${escapeMarkdown(step.evidence)}`,
+    );
+  }
+
+  lines.push('', '### Diagrama del recorrido', '', renderDecisionDiagram(analysis.decision_path), '');
   return `${lines.join('\n')}\n`;
 }
 
@@ -175,6 +225,7 @@ async function upsertAnalysisComment(issueNumber, alertAnalysis) {
 const analysisByAlertNumber = new Map(
   analysisReport.analyses.map((item) => [item.alert?.number, item]),
 );
+const decisionOutcomes = new Set(['DEMOSTRADO', 'NO DEMOSTRADO', 'NO EVALUABLE']);
 let createdCount = 0;
 let existingCount = 0;
 
@@ -189,6 +240,17 @@ for (const alert of report.alerts.filter((item) => item.state === 'open')) {
     || alertAnalysis.classification !== 'NO_DISMISS'
     || !Array.isArray(alertAnalysis.evidence)
     || !alertAnalysis.evidence.every((item) => typeof item === 'string')
+    || !Array.isArray(alertAnalysis.decision_path)
+    || alertAnalysis.decision_path.length === 0
+    || !alertAnalysis.decision_path.every((step) => (
+      step
+      && typeof step.step === 'string'
+      && typeof step.outcome === 'string'
+      && typeof step.evidence === 'string'
+    ))
+    || alertAnalysis.decision_path.length !== 5
+    || alertAnalysis.decision_path.slice(0, 4).some((step) => !decisionOutcomes.has(step.outcome))
+    || alertAnalysis.decision_path[4].outcome !== 'NO_DISMISS'
     || typeof alertAnalysis.rationale !== 'string'
     || typeof alertAnalysis.recommended_action !== 'string'
   ) {
